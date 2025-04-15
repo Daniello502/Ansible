@@ -1,0 +1,35 @@
+---
+- name: Keygen, echo password, and copy ssh key
+  hosts: localhost
+  gather_facts: false
+  vars:
+    password_file: "/home/ansible/password.txt"
+    users:
+      - ansible
+      - root
+    operating_systems:
+      - ubuntu
+      - centos
+    instances: [1, 2, 3]
+
+  tasks:
+
+    - name: Generate SSH key if it doesn't exist
+      ansible.builtin.command: ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa
+      args:
+        creates: ~/.ssh/id_rsa
+
+    - name: Echo password file (for visibility/debugging)
+      ansible.builtin.shell: cat password.txt
+      register: password_output
+
+    - name: Print password file contents
+      ansible.builtin.debug:
+        var: password_output.stdout
+
+    - name: Copy SSH key to each target using sshpass
+      ansible.builtin.shell: |
+        sshpass -f password.txt ssh-copy-id -o StrictHostKeyChecking=no {{ item.0 }}@{{ item.1 }}{{ item.2 }}
+      loop: "{{ lookup('ansible.builtin.subelements', lookup('ansible.builtin.cartesian', users, operating_systems), '1') | product(instances) | list }}"
+      loop_control:
+        label: "{{ item.0.0 }}@{{ item.0.1 }}{{ item.1 }}"
