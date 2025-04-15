@@ -20,7 +20,7 @@
         creates: ~/.ssh/id_rsa
 
     - name: Echo password file (for visibility/debugging)
-      ansible.builtin.shell: cat password.txt
+      ansible.builtin.shell: cat {{ password_file }}
       register: password_output
 
     - name: Print password file contents
@@ -29,7 +29,7 @@
 
     - name: Copy SSH key to each target using sshpass
       ansible.builtin.shell: |
-        sshpass -f password.txt ssh-copy-id -o StrictHostKeyChecking=no {{ item.0 }}@{{ item.1 }}{{ item.2 }}
+        sshpass -f {{ password_file }} ssh-copy-id -o StrictHostKeyChecking=no {{ item.0 }}@{{ item.1 }}{{ item.2 }}
       loop: "{{ lookup('ansible.builtin.subelements', lookup('ansible.builtin.cartesian', users, operating_systems), '1') | product(instances) | list }}"
       loop_control:
         label: "{{ item.0.0 }}@{{ item.0.1 }}{{ item.1 }}"
