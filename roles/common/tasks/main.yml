@@ -1,0 +1,41 @@
+---
+# Common role tasks
+- name: Update package cache
+  package:
+    update_cache: yes
+  changed_when: false
+
+- name: Install common packages
+  package:
+    name:
+      - curl
+      - apt-transport-https
+      - ca-certificates
+      - gnupg
+      - lsb-release
+      - python3
+      - python3-pip
+    state: present
+
+- name: Ensure required Python packages
+  pip:
+    name:
+      - kubernetes
+      - openshift
+    state: present
+
+- name: Set up /etc/hosts entries
+  lineinfile:
+    path: /etc/hosts
+    line: "{{ item.ip }} {{ item.name }}"
+    regexp: "^{{ item.ip }}.*{{ item.name }}$"
+    state: present
+  loop:
+    - { ip: "172.18.0.2", name: "ubuntu-c" }
+    - { ip: "172.18.0.8", name: "ubuntu1" }
+    - { ip: "1172.18.0.7", name: "ubuntu2" }
+    - { ip: "172.18.0.4", name: "ubuntu3" }
+    - { ip: "172.18.0.5", name: "centos1" }
+    - { ip: "172.18.0.9", name: "centos2" }
+    - { ip: "172.18.0.6", name: "centos3" }
+  when: inventory_hostname != "localhost"

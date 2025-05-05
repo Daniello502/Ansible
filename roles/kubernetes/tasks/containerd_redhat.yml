@@ -1,0 +1,19 @@
+---
+- name: Install prerequisites for containerd on CentOS
+  yum:
+    name:
+      - yum-utils
+      - device-mapper-persistent-data
+      - lvm2
+    state: present
+
+- name: Add Docker repository
+  shell: |
+    yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+  args:
+    creates: /etc/yum.repos.d/docker-ce.repo
+
+- name: Install containerd
+  yum:
+    name: containerd.io
+    state: present

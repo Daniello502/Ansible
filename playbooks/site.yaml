@@ -1,0 +1,63 @@
+---
+- name: Apply common configuration
+  hosts: all
+  become: true
+  roles:
+    - common
+
+- name: Configure Kubernetes control plane
+  hosts: k8s_control
+  become: true
+  roles:
+    - kubernetes/control_plane
+
+- name: Configure Kubernetes worker nodes
+  hosts: k8s_workers
+  become: true
+  roles:
+    - kubernetes/worker
+
+- name: Deploy ArgoCD
+  hosts: k8s_control
+  become: true
+  roles:
+    - argocd
+
+- name: Configure monitoring
+  hosts: monitoring
+  become: true
+  roles:
+    - monitoring
+
+# This playbook is for setting up a Kubernetes cluster with control plane and worker nodes.
+# It includes tasks for installing and configuring Kubernetes components, as well as setting up the control plane and worker nodes.
+# The playbook is divided into different roles for better organization and reusability.
+# The roles include:
+# - common: Common tasks for all nodes, such as installing required packages and setting up /etc/hosts entries.
+# - kubernetes: Tasks for installing and configuring Kubernetes components.
+# - kubernetes_control: Tasks for setting up the Kubernetes control plane.
+# - kubernetes_worker: Tasks for setting up Kubernetes worker nodes.
+
+- name: Apply common configuration
+  hosts: all
+  become: true
+  roles:
+    - common
+
+- name: Install Kubernetes components
+  hosts: k8s_cluster
+  become: true
+  roles:
+    - kubernetes
+
+- name: Configure Kubernetes control plane
+  hosts: k8s_control
+  become: true
+  roles:
+    - kubernetes_control
+
+- name: Configure Kubernetes worker nodes
+  hosts: k8s_workers
+  become: true
+  roles:
+    - kubernetes_worker

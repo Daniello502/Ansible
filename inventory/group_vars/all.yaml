@@ -1,0 +1,36 @@
+all:
+  children:
+    k8s_cluster:
+      children:
+        k8s_control:
+          hosts:
+            ubuntu1:
+              ansible_host: ubuntu1
+        k8s_workers:
+          hosts:
+            ubuntu2:
+              ansible_host: ubuntu2
+            ubuntu3:
+              ansible_host: ubuntu3
+            centos1:
+              ansible_host: centos1
+            centos3:
+              ansible_host: centos3
+    monitoring:
+      hosts:
+        centos2:
+          ansible_host: centos2
+    control:
+      hosts:
+        ubuntu-c:
+          ansible_host: ubuntu-c
+    ubuntu_hosts:
+      hosts:
+        ubuntu1:
+        ubuntu2:
+        ubuntu3:
+    centos_hosts:
+      hosts:
+        centos1:
+        centos2:
+        centos3:

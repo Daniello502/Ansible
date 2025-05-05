@@ -1,0 +1,107 @@
+---
+# Kubernetes common setup
+
+- name: Disable swap
+  shell: swapoff -a
+  changed_when: false
+
+- name: Remove swap entry from fstab
+  lineinfile:
+    path: /etc/fstab
+    regexp: '.*swap.*'
+    state: absent
+
+- name: Load required kernel modules
+  modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - overlay
+    - br_netfilter
+  ignore_errors: yes  # Some modules might already be loaded
+
+- name: Set kernel parameters for Kubernetes
+  sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  with_items:
+    - { key: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+    - { key: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
+    - { key: 'net.ipv4.ip_forward', value: '1' }
+
+- name: Create containerd configuration directory
+  file:
+    path: /etc/modules-load.d/
+    state: directory
+    mode: '0755'
+
+- name: Configure modules for containerd
+  copy:
+    dest: /etc/modules-load.d/containerd.conf
+    content: |
+      overlay
+      br_netfilter
+    mode: '0644'
+
+- name: Install container runtime
+  include_tasks: "containerd_{{ ansible_os_family | lower }}.yml"
+
+- name: Configure containerd
+  shell: |
+    mkdir -p /etc/containerd
+    containerd config default > /etc/containerd/config.toml
+  args:
+    creates: /etc/containerd/config.toml
+
+- name: Update containerd configuration to use systemd cgroup driver
+  lineinfile:
+    path: /etc/containerd/config.toml
+    line: '            SystemdCgroup = true'
+    insertafter: '            runtime_type = "io.containerd.runc.v2"'
+    state: present
+
+- name: Restart containerd
+  systemd:
+    name: containerd
+    state: restarted
+    enabled: yes
+    daemon_reload: yes
+
+- name: Add Kubernetes apt key for Ubuntu
+  apt_key:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Add Kubernetes repository for Ubuntu
+  apt_repository:
+    repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
+    state: present
+    filename: kubernetes
+  when: ansible_os_family == "Debian"
+
+- name: Add Kubernetes repository for CentOS
+  yum_repository:
+    name: kubernetes
+    description: Kubernetes repository
+    baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-$basearch
+    gpgcheck: yes
+    gpgkey: https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+    enabled: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Install Kubernetes packages
+  package:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+    state: present
+
+- name: Enable kubelet service
+  systemd:
+    name: kubelet
+    enabled: yes
+    state: started

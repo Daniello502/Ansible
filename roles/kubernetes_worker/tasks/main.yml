@@ -1,0 +1,17 @@
+---
+# Kubernetes worker node setup
+
+- name: Check if node is already joined
+  stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: kubelet_conf
+
+- name: Fetch join command from local file
+  local_action: slurp src="./join-command"
+  register: join_command_file
+  become: no
+  when: not kubelet_conf.stat.exists
+
+- name: Join the Kubernetes cluster
+  shell: "{{ join_command_file['content'] | b64decode }}"
+  when: not kubelet_conf.stat.exists
