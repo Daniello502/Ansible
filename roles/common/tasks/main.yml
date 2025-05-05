@@ -5,8 +5,8 @@
     update_cache: yes
   changed_when: false
 
-- name: Install common packages
-  package:
+- name: Install common packages on Debian/Ubuntu
+  ansible.builtin.package:
     name:
       - curl
       - apt-transport-https
@@ -16,6 +16,19 @@
       - python3
       - python3-pip
     state: present
+  when: ansible_os_family == "Debian"
+
+- name: Install common packages on RedHat/CentOS
+  ansible.builtin.package:
+    name:
+      - curl
+      - ca-certificates
+      - gnupg2
+      - redhat-lsb-core
+      - python3
+      - python3-pip
+    state: present
+  when: ansible_os_family == "RedHat"
 
 - name: Ensure required Python packages
   pip:
@@ -25,7 +38,7 @@
     state: present
 
 - name: Set up /etc/hosts entries
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/hosts
     line: "{{ item.ip }} {{ item.name }}"
     regexp: "^{{ item.ip }}.*{{ item.name }}$"
@@ -33,9 +46,10 @@
   loop:
     - { ip: "172.18.0.2", name: "ubuntu-c" }
     - { ip: "172.18.0.8", name: "ubuntu1" }
-    - { ip: "1172.18.0.7", name: "ubuntu2" }
+    - { ip: "172.18.0.7", name: "ubuntu2" }
     - { ip: "172.18.0.4", name: "ubuntu3" }
     - { ip: "172.18.0.5", name: "centos1" }
     - { ip: "172.18.0.9", name: "centos2" }
     - { ip: "172.18.0.6", name: "centos3" }
   when: inventory_hostname != "localhost"
+  become: true
