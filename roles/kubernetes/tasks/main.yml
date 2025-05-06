@@ -1,15 +1,21 @@
 ---
-# Kubernetes common setup
+# Ansible playbook to install and configure Kubernetes on a target host
+# This playbook includes tasks for installing required packages, configuring kernel parameters,
+# setting up containerd, and installing Kubernetes components.  
 
-- name: Disable swap
-  shell: swapoff -a
+- name: Check if swap is enabled
+  command: swapon --summary
+  register: swap_status
   changed_when: false
+  ignore_errors: true  # In case swapon fails (rarely but safely ignored)
 
-- name: Remove swap entry from fstab
-  lineinfile:
-    path: /etc/fstab
-    regexp: '.*swap.*'
-    state: absent
+- name: Disable swap only if swap is active
+  command: swapoff -a
+  when:
+    - swap_status.rc == 0
+    - swap_status.stdout != ""
+  become: true
+  ignore_errors: true
 
 - name: Load required kernel modules
   modprobe:
@@ -18,7 +24,40 @@
   loop:
     - overlay
     - br_netfilter
-  ignore_errors: yes  # Some modules might already be loaded
+  ignore_errors: yes
+  when: not is_container | default(false)  # Some modules might already be loaded
+
+- name: Install required system utilities on Debian-based systems
+  apt:
+    name:
+      - kmod  # Provides modprobe
+      - procps  # Provides sysctl
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Install required system utilities on RedHat-based systems
+  yum:
+    name:
+      - kmod
+      - procps-ng
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Add Docker repository for Ubuntu
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+    state: present
+    filename: docker
+  when: ansible_os_family == "Debian"
+
+- name: Check if running in container
+  stat:
+    path: /.dockerenv
+  register: dockerenv
+  
+- name: Set container fact
+  set_fact:
+    is_container: "{{ dockerenv.stat.exists }}"
 
 - name: Set kernel parameters for Kubernetes
   sysctl:
@@ -69,17 +108,33 @@
     enabled: yes
     daemon_reload: yes
 
-- name: Add Kubernetes apt key for Ubuntu
-  apt_key:
+- name: Download Kubernetes GPG key
+  get_url:
     url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
-    state: present
+    dest: /etc/apt/keyrings/kubernetes-archive-keyring.gpg
+    mode: '0644'
   when: ansible_os_family == "Debian"
 
-- name: Add Kubernetes repository for Ubuntu
+- name: Add Kubernetes apt repository for Ubuntu
   apt_repository:
-    repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
-    state: present
+    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-{{ ansible_distribution_release }} main"
     filename: kubernetes
+    state: present
+  when: ansible_os_family == "Debian"
+  failed_when: false # Add this if the repository might not exist for all Ubuntu versions
+
+- name: Alternative Kubernetes repository for older distributions
+  apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main"
+    filename: kubernetes
+    state: present
+  when: 
+    - ansible_os_family == "Debian"
+    - ansible_distribution_release not in ['jammy', 'focal']
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
   when: ansible_os_family == "Debian"
 
 - name: Add Kubernetes repository for CentOS

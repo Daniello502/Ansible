@@ -48,6 +48,7 @@
     line: "{{ item.ip }} {{ item.name }}"
     regexp: "^{{ item.ip }}.*{{ item.name }}$"
     state: present
+    unsafe_writes: true
   loop:
     - { ip: "172.18.0.8", name: "ubuntu1" }
     - { ip: "172.18.0.7", name: "ubuntu2" }
